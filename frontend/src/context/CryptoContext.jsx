@@ -24,6 +24,7 @@ export const CryptoProvider = ({ children }) => {
         try {
             const response = await axios.get(`${API_URL}/watchlist/${USER_ID}`);
             setWatchlist(response.data);
+            response.data.forEach(coin => fetchHistory(coin.id));
         } catch (error) {
             console.error(error);
         }
@@ -59,6 +60,12 @@ export const CryptoProvider = ({ children }) => {
     useEffect(() => {
         fetchCryptos();
         fetchWatchlist();
+
+        const interval = setInterval(() => {
+            fetchWatchlist();
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
     return (
