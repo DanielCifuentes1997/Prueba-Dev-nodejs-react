@@ -1,5 +1,5 @@
-import { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { createContext, useState, useEffect, useCallback } from 'react';
+import cryptoService from '../services/cryptoService';
 
 export const CryptoContext = createContext();
 
@@ -8,52 +8,53 @@ export const CryptoProvider = ({ children }) => {
     const [watchlist, setWatchlist] = useState([]);
     const [history, setHistory] = useState({});
 
-    const API_URL = 'http://localhost:3001/api';
     const USER_ID = 1;
 
     const fetchCryptos = async () => {
         try {
-            const response = await axios.get(`${API_URL}/cryptos`);
-            setCryptos(response.data);
+            const data = await cryptoService.getAllCryptos();
+            setCryptos(data);
         } catch (error) {
-            console.error(error);
+            console.error(error.message);
         }
     };
 
-    const fetchWatchlist = async () => {
+    const fetchHistory = useCallback(async (cryptoId) => {
         try {
-            const response = await axios.get(`${API_URL}/watchlist/${USER_ID}`);
-            setWatchlist(response.data);
-            response.data.forEach(coin => fetchHistory(coin.id));
+            const data = await cryptoService.getPriceHistory(cryptoId);
+            setHistory(prev => ({ ...prev, [cryptoId]: data }));
         } catch (error) {
-            console.error(error);
+            console.error(error.message);
         }
-    };
+    }, []);
+
+    const fetchWatchlist = useCallback(async () => {
+        try {
+            const data = await cryptoService.getWatchlist(USER_ID);
+            setWatchlist(data);
+            
+            const historyPromises = data.map(coin => fetchHistory(coin.id));
+            await Promise.all(historyPromises);
+        } catch (error) {
+            console.error(error.message);
+        }
+    }, [fetchHistory]);
 
     const addToWatchlist = async (cryptoId) => {
         try {
-            await axios.post(`${API_URL}/watchlist`, { user_id: USER_ID, crypto_id: cryptoId });
-            fetchWatchlist();
+            await cryptoService.addToWatchlist(USER_ID, cryptoId);
+            await fetchWatchlist();
         } catch (error) {
-            console.error(error);
+            console.error(error.message);
         }
     };
 
     const removeFromWatchlist = async (cryptoId) => {
         try {
-            await axios.delete(`${API_URL}/watchlist/${USER_ID}/${cryptoId}`);
-            fetchWatchlist();
+            await cryptoService.removeFromWatchlist(USER_ID, cryptoId);
+            setWatchlist(prev => prev.filter(item => item.id !== cryptoId));
         } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const fetchHistory = async (cryptoId) => {
-        try {
-            const response = await axios.get(`${API_URL}/prices/history/${cryptoId}`);
-            setHistory(prev => ({ ...prev, [cryptoId]: response.data }));
-        } catch (error) {
-            console.error(error);
+            console.error(error.message);
         }
     };
 
@@ -61,12 +62,9 @@ export const CryptoProvider = ({ children }) => {
         fetchCryptos();
         fetchWatchlist();
 
-        const interval = setInterval(() => {
-            fetchWatchlist();
-        }, 30000);
-
+        const interval = setInterval(fetchWatchlist, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchWatchlist]);
 
     return (
         <CryptoContext.Provider value={{
