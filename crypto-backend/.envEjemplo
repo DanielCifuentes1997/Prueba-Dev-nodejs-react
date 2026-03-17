@@ -1,0 +1,6 @@
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=Contraseña de la base de datos
+DB_NAME=cryptoinvestment_db
+CMC_API_KEY=aquí la apikey de crypto....
+PORT=3001
